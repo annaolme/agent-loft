@@ -1017,7 +1017,7 @@ struct AgentLoftView: View {
         let p = Process(); p.executableURL = URL(fileURLWithPath: "/bin/zsh"); p.arguments = ["-c", cmd]
         let pipe = Pipe(); p.standardOutput = pipe; p.standardError = FileHandle.nullDevice
         var env = ProcessInfo.processInfo.environment
-        env["PATH"] = "/Users/olmeeann/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin"
+        env["PATH"] = NSHomeDirectory() + "/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin"
         p.environment = env
         var output = Data()
         let lock = NSLock()
