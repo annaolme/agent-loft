@@ -7,16 +7,22 @@ struct AgentLoftApp: App {
     var body: some Scene {
         WindowGroup {
             AgentLoftView()
-                .frame(minWidth: 860, minHeight: 720)
+                .frame(minWidth: 864, minHeight: 790)
         }
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified(showsTitle: false))
-        .defaultSize(width: 862, height: 740)
+        .defaultSize(width: 864, height: 820)
     }
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "--snapshot"), i + 1 < args.count {
+            renderSnapshot(to: args[i + 1])
+            NSApp.terminate(nil)
+            return
+        }
         guard let w = NSApplication.shared.windows.first else { return }
         w.title = ""
         w.titlebarAppearsTransparent = true
@@ -63,355 +69,466 @@ struct Activity: Identifiable {
     let detail: String
 }
 
-struct CharLook { let hair: Color; let shirt: Color; let isRound: Bool }
+// Character look: which sprite sheet in assets/ and the accent colour used in the UI
+struct CharLook { let sheet: Int; let accent: Color }
 
 let STYLES: [CharLook] = [
-    CharLook(hair: Color(red: 0.78, green: 0.35, blue: 0.65), shirt: Color(red: 0.68, green: 0.52, blue: 0.85), isRound: false),
-    CharLook(hair: Color(red: 0.30, green: 0.55, blue: 0.82), shirt: Color(red: 0.42, green: 0.68, blue: 0.95), isRound: false),
-    CharLook(hair: Color(red: 0.88, green: 0.52, blue: 0.22), shirt: Color(red: 0.95, green: 0.65, blue: 0.32), isRound: false),
-    CharLook(hair: Color(red: 0.25, green: 0.62, blue: 0.42), shirt: Color(red: 0.35, green: 0.75, blue: 0.52), isRound: false),
-    CharLook(hair: Color(red: 0.82, green: 0.28, blue: 0.32), shirt: Color(red: 0.92, green: 0.42, blue: 0.42), isRound: false),
-    CharLook(hair: Color(red: 0.95, green: 0.90, blue: 0.80), shirt: Color(red: 0.95, green: 0.70, blue: 0.70), isRound: true),
-    CharLook(hair: Color(red: 0.22, green: 0.22, blue: 0.30), shirt: Color(red: 0.92, green: 0.55, blue: 0.22), isRound: false),
-    CharLook(hair: Color(red: 0.28, green: 0.52, blue: 0.75), shirt: Color(red: 0.22, green: 0.85, blue: 0.80), isRound: false),
+    CharLook(sheet: 0, accent: Color(red: 0.30, green: 0.50, blue: 0.80)),
+    CharLook(sheet: 1, accent: Color(red: 0.88, green: 0.62, blue: 0.30)),
+    CharLook(sheet: 2, accent: Color(red: 0.92, green: 0.45, blue: 0.18)),
+    CharLook(sheet: 3, accent: Color(red: 0.85, green: 0.85, blue: 0.90)),
+    CharLook(sheet: 4, accent: Color(red: 0.70, green: 0.45, blue: 0.28)),
+    CharLook(sheet: 5, accent: Color(red: 0.88, green: 0.32, blue: 0.32)),
 ]
 
 // MARK: - Palette
 
 struct P {
     static let ceil       = Color(red: 0.10, green: 0.08, blue: 0.14)
-    static let duct       = Color(red: 0.22, green: 0.20, blue: 0.26)
-    static let ductHi     = Color(red: 0.28, green: 0.25, blue: 0.32)
-    static let brkA       = Color(red: 0.50, green: 0.25, blue: 0.18)
-    static let brkB       = Color(red: 0.60, green: 0.33, blue: 0.23)
-    static let brkC       = Color(red: 0.55, green: 0.29, blue: 0.20)
-    static let brkD       = Color(red: 0.48, green: 0.23, blue: 0.16)
+    static let duct       = Color(red: 0.18, green: 0.16, blue: 0.22)
+    static let ductHi     = Color(red: 0.24, green: 0.21, blue: 0.28)
+    static let bricks     = [Color(red: 0.50, green: 0.25, blue: 0.18), Color(red: 0.60, green: 0.33, blue: 0.23),
+                             Color(red: 0.55, green: 0.29, blue: 0.20), Color(red: 0.48, green: 0.23, blue: 0.16)]
+    static let brickHi    = Color(red: 0.66, green: 0.38, blue: 0.27)
     static let mortar     = Color(red: 0.36, green: 0.31, blue: 0.26)
-    static let wdA        = Color(red: 0.72, green: 0.58, blue: 0.42)
-    static let wdB        = Color(red: 0.64, green: 0.50, blue: 0.36)
-    static let wdC        = Color(red: 0.78, green: 0.64, blue: 0.46)
-    static let wdD        = Color(red: 0.68, green: 0.54, blue: 0.40)
-    static let skyHi      = Color(red: 0.28, green: 0.45, blue: 0.72)
-    static let skyMd      = Color(red: 0.42, green: 0.62, blue: 0.88)
-    static let skyLo      = Color(red: 0.55, green: 0.75, blue: 0.95)
-    static let bldg       = Color(red: 0.18, green: 0.20, blue: 0.28)
-    static let bldgDk     = Color(red: 0.14, green: 0.16, blue: 0.22)
-    static let bldgLit    = Color(red: 0.92, green: 0.85, blue: 0.48)
-    static let bldgOff    = Color(red: 0.22, green: 0.24, blue: 0.32)
+    static let skyHi      = Color(red: 0.10, green: 0.12, blue: 0.28)
+    static let skyMd      = Color(red: 0.16, green: 0.19, blue: 0.40)
+    static let skyLo      = Color(red: 0.30, green: 0.26, blue: 0.48)
+    static let star       = Color(red: 0.90, green: 0.90, blue: 1.00)
+    static let bldg       = Color(red: 0.14, green: 0.15, blue: 0.24)
+    static let bldgDk     = Color(red: 0.10, green: 0.11, blue: 0.18)
+    static let bldgLit    = Color(red: 0.95, green: 0.85, blue: 0.48)
     static let wf         = Color(red: 0.16, green: 0.14, blue: 0.20)
-    static let base       = Color(red: 0.28, green: 0.23, blue: 0.18)
-    static let desk       = Color(red: 0.50, green: 0.38, blue: 0.28)
-    static let deskT      = Color(red: 0.58, green: 0.45, blue: 0.33)
-    static let mon        = Color(red: 0.12, green: 0.12, blue: 0.16)
-    static let scrOn      = Color(red: 0.22, green: 0.82, blue: 0.48)
-    static let scrOff     = Color(red: 0.22, green: 0.22, blue: 0.28)
-    static let plDk       = Color(red: 0.14, green: 0.40, blue: 0.20)
-    static let plLt       = Color(red: 0.28, green: 0.62, blue: 0.32)
-    static let plMd       = Color(red: 0.20, green: 0.52, blue: 0.25)
-    static let potC       = Color(red: 0.65, green: 0.42, blue: 0.26)
-    static let chr        = Color(red: 0.24, green: 0.22, blue: 0.28)
-    static let chrS       = Color(red: 0.30, green: 0.28, blue: 0.34)
-    static let skin       = Color(red: 0.95, green: 0.82, blue: 0.70)
-    static let skinSh     = Color(red: 0.88, green: 0.74, blue: 0.62)
-    static let rugA       = Color(red: 0.48, green: 0.30, blue: 0.45)
-    static let rugB       = Color(red: 0.40, green: 0.24, blue: 0.38)
-    static let rugBd      = Color(red: 0.56, green: 0.36, blue: 0.52)
+    static let wfHi       = Color(red: 0.30, green: 0.27, blue: 0.34)
+    static let sill       = Color(red: 0.62, green: 0.58, blue: 0.56)
+    static let wb         = Color(red: 0.93, green: 0.93, blue: 0.95)
+    static let wbFrame    = Color(red: 0.62, green: 0.62, blue: 0.66)
+    static let base       = Color(red: 0.24, green: 0.19, blue: 0.15)
+    static let rugBd      = Color(red: 0.36, green: 0.20, blue: 0.34)
     static let neon       = Color(red: 1.00, green: 0.28, blue: 0.52)
-    static let lmpW       = Color(red: 0.24, green: 0.20, blue: 0.28)
-    static let lmpS       = Color(red: 0.85, green: 0.75, blue: 0.55)
-    static let lmpG       = Color(red: 1.00, green: 0.95, blue: 0.80)
-    static let wbFr       = Color(red: 0.62, green: 0.62, blue: 0.66)
-    static let wb         = Color(red: 0.92, green: 0.92, blue: 0.95)
-    static let couchB     = Color(red: 0.42, green: 0.23, blue: 0.38)
-    static let couchS     = Color(red: 0.52, green: 0.30, blue: 0.46)
-    static let couchL     = Color(red: 0.36, green: 0.18, blue: 0.32)
-    static let door       = Color(red: 0.42, green: 0.30, blue: 0.20)
-    static let doorFr     = Color(red: 0.32, green: 0.25, blue: 0.18)
-    static let doorKn     = Color(red: 0.85, green: 0.75, blue: 0.50)
-    static let cofM       = Color(red: 0.52, green: 0.52, blue: 0.56)
-    static let cofD       = Color(red: 0.38, green: 0.20, blue: 0.12)
+    static let lampWire   = Color(red: 0.24, green: 0.20, blue: 0.28)
+    static let lampShade  = Color(red: 0.85, green: 0.75, blue: 0.55)
+    static let lampGlow   = Color(red: 1.00, green: 0.95, blue: 0.80)
+    static let warmLight  = Color(red: 1.00, green: 0.85, blue: 0.55)
+    static let moonLight  = Color(red: 0.55, green: 0.65, blue: 1.00)
     static let panel      = Color(red: 0.11, green: 0.09, blue: 0.16)
+    static let scrOn      = Color(red: 0.22, green: 0.82, blue: 0.48)
+    static let screenGlow = Color(red: 0.45, green: 0.85, blue: 1.00)
+    static let mochi      = Color(red: 0.97, green: 0.93, blue: 0.85)
+    static let mochiSh    = Color(red: 0.88, green: 0.82, blue: 0.74)
+    static let mochiLine  = Color(red: 0.30, green: 0.20, blue: 0.26)
+    static let cheek      = Color(red: 0.95, green: 0.62, blue: 0.66)
     static let eye        = Color(white: 0.12)
     static let mouth      = Color(red: 0.85, green: 0.48, blue: 0.48)
 }
 
 // MARK: - Grid
+// The scene is drawn in art pixels (16 px tiles, like the sprites) and scaled up by K.
 
-let T: CGFloat = 6
-let C = 140
-let R = 88
-let DKCOLS = [10, 40, 70, 100]
-let DKCOLS2 = [25, 55, 85, 115]
-let DKROW2_Y = 18
+let K: CGFloat = 3
+let SW = 288
+let SH = 208
+let WALL_TOP = 10
+let WALL_BOT = 44
+let FLOOR_Y = 46
+let DESK_SLOTS = 8
 
 func t(_ ctx: inout GraphicsContext, x: Int, y: Int, w: Int = 1, h: Int = 1, c: Color) {
-    ctx.fill(Path(CGRect(x: CGFloat(x)*T, y: CGFloat(y)*T, width: CGFloat(w)*T, height: CGFloat(h)*T)), with: .color(c))
+    ctx.fill(Path(CGRect(x: CGFloat(x)*K, y: CGFloat(y)*K, width: CGFloat(w)*K, height: CGFloat(h)*K)), with: .color(c))
+}
+
+// MARK: - Sprites
+
+enum Sprites {
+    // PNGs live in assets/ next to the binary (or in the app bundle's Resources)
+    static let dir = Bundle.main.resourceURL!.appendingPathComponent("assets")
+    // Pre-scaled with nearest-neighbour so pixels stay crisp on Retina screens
+    static let renderScale = 2
+    static var cache: [String: CGImage] = [:]
+
+    static func image(_ name: String) -> CGImage? {
+        if let c = cache[name] { return c }
+        guard let src = CGImageSourceCreateWithURL(dir.appendingPathComponent(name + ".png") as CFURL, nil),
+              let raw = CGImageSourceCreateImageAtIndex(src, 0, nil) else { return nil }
+        cache[name] = raw
+        return raw
+    }
+
+    static func scaled(_ name: String, crop: CGRect? = nil) -> CGImage? {
+        let key = crop.map { "\(name)@\($0.minX),\($0.minY)" } ?? name + "@"
+        if let c = cache[key] { return c }
+        guard var img = image(name) else { return nil }
+        if let crop, let c = img.cropping(to: crop) { img = c }
+        let s = Int(K) * renderScale
+        guard let ctx = CGContext(data: nil, width: img.width * s, height: img.height * s, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        ctx.interpolationQuality = .none
+        ctx.draw(img, in: CGRect(x: 0, y: 0, width: img.width * s, height: img.height * s))
+        guard let out = ctx.makeImage() else { return nil }
+        cache[key] = out
+        return out
+    }
+
+    // Character sheets: 7 frames of 16x32 per row. Row 0 faces the viewer.
+    // Frames 0-2 walk, 3-4 typing, 5-6 reading.
+    static func character(_ sheet: Int, frame: Int) -> CGImage? {
+        scaled("char_\(sheet)", crop: CGRect(x: frame * 16, y: 0, width: 16, height: 32))
+    }
+}
+
+func sprite(_ ctx: inout GraphicsContext, _ img: CGImage?, x: Int, y: Int) {
+    guard let img else { return }
+    let s = CGFloat(Sprites.renderScale)
+    ctx.draw(Image(decorative: img, scale: s).interpolation(.none),
+             in: CGRect(x: CGFloat(x)*K, y: CGFloat(y)*K, width: CGFloat(img.width)/s, height: CGFloat(img.height)/s))
+}
+
+func sprite(_ ctx: inout GraphicsContext, _ name: String, x: Int, y: Int) {
+    sprite(&ctx, Sprites.scaled(name), x: x, y: y)
 }
 
 // MARK: - Room
 
-func drawRoom(_ ctx: inout GraphicsContext, services: [String]) {
+let WINDOWS = [18, 127, 236]
+let WB_X = 68, WB_Y = WALL_TOP + 5, WB_W = 42, WB_H = 22
+
+func drawRoom(_ ctx: inout GraphicsContext, frame: Int) {
     // Ceiling + ductwork
-    t(&ctx, x: 0, y: 0, w: C, h: 4, c: P.ceil)
-    for dx in stride(from: 5, to: C-5, by: 20) {
-        t(&ctx, x: dx, y: 1, w: 15, h: 2, c: P.duct)
-        t(&ctx, x: dx+2, y: 1, w: 11, h: 1, c: P.ductHi)
+    t(&ctx, x: 0, y: 0, w: SW, h: WALL_TOP, c: P.ceil)
+    for dx in stride(from: 4, to: SW - 30, by: 48) {
+        t(&ctx, x: dx, y: 3, w: 34, h: 4, c: P.duct)
+        t(&ctx, x: dx + 2, y: 3, w: 30, h: 1, c: P.ductHi)
     }
 
-    // Brick wall
-    for y in 4..<34 {
-        for x in 0..<C {
-            let wy = y - 4
-            let isH = wy % 4 == 0
-            let off = (wy / 4) % 2 == 0 ? 0 : 5
-            let isV = (x + off) % 10 == 0
-            if isH || isV {
+    // Brick wall (12x6 bricks, with a light top edge)
+    for y in WALL_TOP..<WALL_BOT {
+        let wy = y - WALL_TOP
+        let off = (wy / 6) % 2 == 0 ? 0 : 6
+        for x in 0..<SW {
+            if wy % 6 == 5 || (x + off) % 12 == 11 {
                 t(&ctx, x: x, y: y, c: P.mortar)
+            } else if wy % 6 == 0 {
+                t(&ctx, x: x, y: y, c: P.brickHi)
             } else {
-                let h = (x &* 7 &+ y &* 13) % 7
-                t(&ctx, x: x, y: y, c: h < 2 ? P.brkA : (h < 4 ? P.brkB : (h < 6 ? P.brkC : P.brkD)))
+                let b = ((x + off) / 12 &* 7 &+ wy / 6 &* 13) % 4
+                t(&ctx, x: x, y: y, c: P.bricks[b])
             }
         }
     }
+    t(&ctx, x: 0, y: WALL_BOT, w: SW, h: 2, c: P.base)
 
-    // Baseboard
-    t(&ctx, x: 0, y: 34, w: C, h: 2, c: P.base)
-
-    // Floor with plank pattern
-    for y in 36..<R {
-        for x in 0..<C {
-            let plank = x / 7
-            let grain = (plank * 3 + y) % 4
-            let colors = [P.wdA, P.wdB, P.wdC, P.wdD]
-            t(&ctx, x: x, y: y, c: colors[grain])
-        }
+    // Wooden floor
+    for y in stride(from: FLOOR_Y, to: SH, by: 32) {
+        for x in stride(from: 0, to: SW, by: 32) { sprite(&ctx, "floor_wood", x: x, y: y) }
     }
 
-    // 3 Windows with detailed skyline
+    // Night windows with skyline; a few office lights switch on and off
     let bH = [9, 6, 12, 8, 5, 11, 7, 10, 4, 8, 13, 6, 9, 5, 11, 7, 10, 6]
-    for wc in [10, 54, 98] {
-        let ww = 23, wh = 20, wy = 8
-        t(&ctx, x: wc, y: wy, w: ww, h: wh, c: P.wf)
-        t(&ctx, x: wc+1, y: wy+1, w: ww-2, h: wh-2, c: P.skyMd)
-        for sy in (wy+1)..<(wy+wh-1) {
-            for sx in (wc+1)..<(wc+ww-1) {
-                let ry = sy - wy - 1, rx = sx - wc - 1
-                let bh = bH[rx % bH.count]
-                if ry >= (wh - 2) - bh {
-                    let isLit = (ry + rx) % 3 == 0 && rx % 2 == 0
-                    t(&ctx, x: sx, y: sy, c: isLit ? P.bldgLit : ((rx % 4 < 2) ? P.bldg : P.bldgDk))
-                } else {
-                    let skyT = CGFloat(ry) / CGFloat(wh - 2)
-                    t(&ctx, x: sx, y: sy, c: skyT < 0.3 ? P.skyHi : (skyT < 0.6 ? P.skyMd : P.skyLo))
-                }
+    let ww = 34, wh = 26, wy = WALL_TOP + 4
+    for wc in WINDOWS {
+        t(&ctx, x: wc - 1, y: wy - 1, w: ww + 2, h: wh + 2, c: P.wf)
+        for sy in 0..<(wh - 2) {
+            let f = CGFloat(sy) / CGFloat(wh - 2)
+            t(&ctx, x: wc + 1, y: wy + 1 + sy, w: ww - 2, c: f < 0.35 ? P.skyHi : (f < 0.7 ? P.skyMd : P.skyLo))
+        }
+        for (sx, sy) in [(4, 3), (13, 6), (22, 2), (29, 7), (9, 9)] {
+            t(&ctx, x: wc + sx, y: wy + sy, c: P.star.opacity((sx + frame / 3) % 4 == 0 ? 0.4 : 0.9))
+        }
+        for rx in 0..<(ww - 2) {
+            let bh = bH[(rx + wc) % bH.count]
+            for ry in (wh - 2 - bh)..<(wh - 2) {
+                let lit = ry % 3 == 1 && rx % 2 == 0 && ((rx * 7 + ry * 3 + wc + frame / 12) % 5 != 0)
+                t(&ctx, x: wc + 1 + rx, y: wy + 1 + ry, c: lit ? P.bldgLit : (rx % 4 < 2 ? P.bldg : P.bldgDk))
             }
         }
-        // Cross bars
-        t(&ctx, x: wc + ww/2, y: wy+1, w: 1, h: wh-2, c: P.wf)
-        t(&ctx, x: wc+1, y: wy + wh/2, w: ww-2, h: 1, c: P.wf)
+        t(&ctx, x: wc + ww / 2, y: wy, w: 1, h: wh, c: P.wf)
+        t(&ctx, x: wc, y: wy + wh / 2, w: ww, h: 1, c: P.wf)
+        t(&ctx, x: wc, y: wy, w: ww, h: 1, c: P.wfHi)
+        t(&ctx, x: wc - 2, y: wy + wh, w: ww + 4, h: 2, c: P.sill)
     }
+
+    // Wall decor
+    // Whiteboard (running dev services are written on it as text)
+    t(&ctx, x: WB_X - 1, y: WB_Y - 1, w: WB_W + 2, h: WB_H + 2, c: P.wbFrame)
+    t(&ctx, x: WB_X, y: WB_Y, w: WB_W, h: WB_H, c: P.wb)
+    t(&ctx, x: WB_X + 2, y: WB_Y + WB_H + 1, w: WB_W - 4, h: 1, c: P.wbFrame)
+    t(&ctx, x: WB_X + 4, y: WB_Y + WB_H, w: 3, h: 1, c: P.neon)
+    t(&ctx, x: WB_X + 8, y: WB_Y + WB_H, w: 3, h: 1, c: P.screenGlow)
+    sprite(&ctx, "CLOCK", x: 182, y: WALL_TOP - 2)
+    sprite(&ctx, "LARGE_PAINTING", x: 198, y: WALL_TOP + 2)
 
     // Pendant lights
-    for lc in [22, 66, 110] {
-        t(&ctx, x: lc, y: 0, w: 1, h: 6, c: P.lmpW)
-        t(&ctx, x: lc-2, y: 5, w: 5, h: 2, c: P.lmpS)
-        t(&ctx, x: lc-1, y: 6, w: 3, h: 1, c: P.lmpG)
+    for lc in [63, 172] {
+        t(&ctx, x: lc, y: 0, w: 1, h: 14, c: P.lampWire)
+        t(&ctx, x: lc - 3, y: 13, w: 7, h: 3, c: P.lampShade)
+        t(&ctx, x: lc - 2, y: 16, w: 5, h: 1, c: P.lampGlow)
     }
 
-    // Door
-    t(&ctx, x: 0, y: 16, w: 6, h: 18, c: P.doorFr)
-    t(&ctx, x: 0, y: 17, w: 5, h: 16, c: P.door)
-    t(&ctx, x: 4, y: 25, w: 1, h: 1, c: P.doorKn)
-
-    // Whiteboard with running services
-    t(&ctx, x: 122, y: 10, w: 16, h: 18, c: P.wbFr)
-    t(&ctx, x: 123, y: 11, w: 14, h: 16, c: P.wb)
-    // Sticky notes
-    t(&ctx, x: 124, y: 12, w: 4, h: 3, c: Color.yellow.opacity(0.8))
-    t(&ctx, x: 129, y: 12, w: 4, h: 3, c: Color.pink.opacity(0.8))
-    t(&ctx, x: 124, y: 16, w: 4, h: 3, c: Color.mint.opacity(0.8))
-    t(&ctx, x: 129, y: 16, w: 4, h: 3, c: Color.orange.opacity(0.8))
-    // Service status dots
-    for (i, _) in services.prefix(4).enumerated() {
-        let sx = 124 + (i % 2) * 5
-        let sy = 21 + (i / 2) * 3
-        t(&ctx, x: sx, y: sy, w: 1, h: 1, c: P.scrOn)
-        t(&ctx, x: sx+1, y: sy, w: 3, h: 1, c: Color(white: 0.5))
+    // Lounge: rug, couch, coffee corner, plants, bookshelf
+    let rx = 84, ry = 172, rw = 120, rh = 34
+    t(&ctx, x: rx - 1, y: ry - 1, w: rw + 2, h: rh + 2, c: P.rugBd)
+    var clip = ctx
+    clip.clip(to: Path(CGRect(x: CGFloat(rx)*K, y: CGFloat(ry)*K, width: CGFloat(rw)*K, height: CGFloat(rh)*K)))
+    for y in stride(from: ry, to: ry + rh, by: 16) {
+        for x in stride(from: rx, to: rx + rw, by: 16) { sprite(&clip, "rug", x: x, y: y) }
     }
-
-    // Plants (detailed)
-    drawPlant(&ctx, x: 2, y: 42, tall: true)
-    drawPlant(&ctx, x: 133, y: 48, tall: true)
-    drawPlant(&ctx, x: 62, y: 44, tall: false)
-
-    // Coffee station
-    t(&ctx, x: 124, y: 55, w: 10, h: 2, c: P.deskT)
-    t(&ctx, x: 124, y: 57, w: 1, h: 4, c: P.desk)
-    t(&ctx, x: 133, y: 57, w: 1, h: 4, c: P.desk)
-    t(&ctx, x: 126, y: 50, w: 6, h: 5, c: P.cofM)
-    t(&ctx, x: 127, y: 51, w: 4, h: 3, c: P.cofD)
-    // Cup
-    t(&ctx, x: 125, y: 53, w: 2, h: 2, c: Color.white)
-    t(&ctx, x: 125, y: 53, w: 2, h: 1, c: P.cofD)
-
-    // Rug
-    t(&ctx, x: 28, y: 70, w: 84, h: 15, c: P.rugA)
-    t(&ctx, x: 28, y: 70, w: 84, h: 2, c: P.rugBd)
-    t(&ctx, x: 28, y: 83, w: 84, h: 2, c: P.rugBd)
-    t(&ctx, x: 28, y: 70, w: 2, h: 15, c: P.rugBd)
-    t(&ctx, x: 110, y: 70, w: 2, h: 15, c: P.rugBd)
-    for y in 72..<83 { for x in 30..<110 { if (x+y) % 5 == 0 { t(&ctx, x: x, y: y, c: P.rugB) } } }
-
-    // Couch
-    t(&ctx, x: 55, y: 73, w: 30, h: 2, c: P.couchB)
-    t(&ctx, x: 54, y: 73, w: 2, h: 6, c: P.couchB)
-    t(&ctx, x: 84, y: 73, w: 2, h: 6, c: P.couchB)
-    t(&ctx, x: 55, y: 75, w: 30, h: 4, c: P.couchS)
-    t(&ctx, x: 55, y: 79, w: 1, h: 2, c: P.couchL)
-    t(&ctx, x: 84, y: 79, w: 1, h: 2, c: P.couchL)
+    sprite(&ctx, "SOFA_FRONT", x: 128, y: 178)
+    sprite(&ctx, "SMALL_TABLE_FRONT", x: 30, y: 172)
+    sprite(&ctx, "COFFEE", x: 38, y: 177)
+    sprite(&ctx, "BIN", x: 64, y: 188)
+    sprite(&ctx, "LARGE_PLANT", x: 0, y: 156)
+    sprite(&ctx, "DOUBLE_BOOKSHELF", x: 222, y: 170)
+    sprite(&ctx, "PLANT", x: 258, y: 174)
+    sprite(&ctx, "PLANT_2", x: 272, y: 174)
 }
 
-func drawPlant(_ ctx: inout GraphicsContext, x: Int, y: Int, tall: Bool) {
-    if tall {
-        t(&ctx, x: x+2, y: y, w: 2, h: 6, c: P.plDk)
-        t(&ctx, x: x, y: y, w: 2, h: 3, c: P.plLt)
-        t(&ctx, x: x+4, y: y, w: 2, h: 3, c: P.plLt)
-        t(&ctx, x: x+1, y: y+1, w: 1, h: 2, c: P.plMd)
-        t(&ctx, x: x+4, y: y+2, w: 1, h: 2, c: P.plMd)
-        t(&ctx, x: x, y: y+3, w: 6, h: 2, c: P.plLt)
-        t(&ctx, x: x+5, y: y+1, w: 2, h: 1, c: P.plDk)
-        t(&ctx, x: x+1, y: y+6, w: 4, h: 3, c: P.potC)
-    } else {
-        t(&ctx, x: x+1, y: y, w: 3, h: 3, c: P.plLt)
-        t(&ctx, x: x, y: y+1, w: 1, h: 2, c: P.plMd)
-        t(&ctx, x: x+4, y: y+1, w: 1, h: 1, c: P.plDk)
-        t(&ctx, x: x+1, y: y+3, w: 3, h: 2, c: P.potC)
+// Soft light drawn on top of everything: moonlight from the windows, warm pools under the lamps, dark edges
+func drawLighting(_ ctx: inout GraphicsContext) {
+    for wc in WINDOWS {
+        var p = Path()
+        p.move(to: CGPoint(x: CGFloat(wc) * K, y: CGFloat(FLOOR_Y) * K))
+        p.addLine(to: CGPoint(x: CGFloat(wc + 34) * K, y: CGFloat(FLOOR_Y) * K))
+        p.addLine(to: CGPoint(x: CGFloat(wc + 46) * K, y: CGFloat(FLOOR_Y + 30) * K))
+        p.addLine(to: CGPoint(x: CGFloat(wc + 8) * K, y: CGFloat(FLOOR_Y + 30) * K))
+        p.closeSubpath()
+        ctx.fill(p, with: .linearGradient(Gradient(colors: [P.moonLight.opacity(0.14), P.moonLight.opacity(0)]),
+                                          startPoint: CGPoint(x: 0, y: CGFloat(FLOOR_Y) * K),
+                                          endPoint: CGPoint(x: 0, y: CGFloat(FLOOR_Y + 30) * K)))
+    }
+    for (lx, ly) in [(63, 90), (172, 90), (144, 186)] {
+        let c = CGPoint(x: CGFloat(lx) * K, y: CGFloat(ly) * K)
+        ctx.fill(Path(ellipseIn: CGRect(x: c.x - 70*K, y: c.y - 45*K, width: 140*K, height: 90*K)),
+                 with: .radialGradient(Gradient(colors: [P.warmLight.opacity(0.13), P.warmLight.opacity(0)]),
+                                       center: c, startRadius: 0, endRadius: 70*K))
+    }
+    let full = CGRect(x: 0, y: 0, width: CGFloat(SW)*K, height: CGFloat(SH)*K)
+    ctx.fill(Path(full), with: .radialGradient(Gradient(colors: [.clear, .clear, Color.black.opacity(0.35)]),
+                                               center: CGPoint(x: full.midX, y: full.midY * 1.1),
+                                               startRadius: 0, endRadius: full.width * 0.62))
+}
+
+// MARK: - Workstations
+
+// Top-left corner of the desk sprite for each slot (two rows of four)
+func stationPos(_ idx: Int) -> (x: Int, y: Int) {
+    (12 + (idx % 4) * 70, idx < 4 ? 70 : 124)
+}
+
+func poseFrame(_ status: AgentStatus, _ frame: Int) -> Int {
+    switch status {
+    case .working: return 3 + frame % 2
+    case .reading: return 5 + (frame / 2) % 2
+    case .idle, .done: return 1
     }
 }
 
-// MARK: - Furniture
-
-func deskPos(_ idx: Int) -> (col: Int, baseY: Int) {
-    if idx < DKCOLS.count { return (DKCOLS[idx], 42) }
-    let i2 = idx - DKCOLS.count
-    if i2 < DKCOLS2.count { return (DKCOLS2[i2], 42) }
-    return (10, 42)
+func drawEmptyDesk(_ ctx: inout GraphicsContext, slot: Int) {
+    let (x, y) = stationPos(slot)
+    sprite(&ctx, "DESK_FRONT", x: x, y: y)
+    sprite(&ctx, "PC_BACK", x: x + 6, y: y - 6)
 }
 
-func drawDesk(_ ctx: inout GraphicsContext, col: Int, baseY: Int, on: Bool) {
-    let dy = baseY - 42
-    t(&ctx, x: col+5, y: 46+dy, w: 6, h: 2, c: P.chr)
-    t(&ctx, x: col+6, y: 54+dy, w: 5, h: 2, c: P.chrS)
-    t(&ctx, x: col+6, y: 61+dy, w: 1, h: 3, c: P.chr)
-    t(&ctx, x: col+10, y: 61+dy, w: 1, h: 3, c: P.chr)
-    t(&ctx, x: col+5, y: 50+dy, w: 7, h: 5, c: P.mon)
-    t(&ctx, x: col+6, y: 51+dy, w: 5, h: 3, c: on ? P.scrOn : P.scrOff)
-    t(&ctx, x: col+8, y: 55+dy, w: 2, h: 1, c: P.mon)
-    t(&ctx, x: col, y: 56+dy, w: 16, h: 2, c: P.deskT)
-    t(&ctx, x: col, y: 58+dy, w: 16, h: 2, c: P.desk)
-    t(&ctx, x: col, y: 60+dy, w: 2, h: 4, c: P.desk)
-    t(&ctx, x: col+14, y: 60+dy, w: 2, h: 4, c: P.desk)
-    t(&ctx, x: col+2, y: 55+dy, w: 4, h: 1, c: Color(white: 0.35))
-}
-
-// MARK: - Characters (8 wide x 12 tall)
-
-func drawChar(_ ctx: inout GraphicsContext, s: CharLook, col: Int, baseY: Int, frame: Int, working: Bool) {
-    let bob = frame % 4 < 2 ? 0 : -1
-    let cx = col + 4, cy = baseY + bob
-
-    if s.isRound {
-        // Mochi-style (10 wide x 8 tall)
-        t(&ctx, x: cx+2, y: cy+2, w: 5, h: 1, c: s.hair)
-        t(&ctx, x: cx+1, y: cy+3, w: 7, h: 4, c: s.hair)
-        t(&ctx, x: cx+2, y: cy+7, w: 5, h: 1, c: s.hair)
-        t(&ctx, x: cx+2, y: cy+4, w: 2, h: 1, c: P.eye)
-        t(&ctx, x: cx+5, y: cy+4, w: 2, h: 1, c: P.eye)
-        t(&ctx, x: cx+1, y: cy+5, w: 1, h: 2, c: s.shirt)
-        t(&ctx, x: cx+7, y: cy+5, w: 1, h: 2, c: s.shirt)
-    } else {
-        // Humanoid (8 wide x 12 tall)
-        // Hair
-        t(&ctx, x: cx+2, y: cy, w: 4, h: 1, c: s.hair)
-        t(&ctx, x: cx+1, y: cy+1, w: 6, h: 2, c: s.hair)
-        // Face
-        t(&ctx, x: cx+1, y: cy+3, w: 6, h: 3, c: P.skin)
-        t(&ctx, x: cx+1, y: cy+5, w: 6, h: 1, c: P.skinSh)
-        // Eyes (2px wide each)
-        t(&ctx, x: cx+2, y: cy+3, w: 1, h: 2, c: P.eye)
-        t(&ctx, x: cx+5, y: cy+3, w: 1, h: 2, c: P.eye)
-        // Eye highlights
-        t(&ctx, x: cx+2, y: cy+3, w: 1, h: 1, c: Color(white: 0.25))
-        t(&ctx, x: cx+5, y: cy+3, w: 1, h: 1, c: Color(white: 0.25))
-        // Mouth
-        t(&ctx, x: cx+3, y: cy+5, w: 2, h: 1, c: P.mouth)
-        // Neck
-        t(&ctx, x: cx+3, y: cy+6, w: 2, h: 1, c: P.skin)
-        // Body
-        t(&ctx, x: cx+1, y: cy+7, w: 6, h: 4, c: s.shirt)
-        // Collar detail
-        t(&ctx, x: cx+3, y: cy+7, w: 2, h: 1, c: s.shirt.opacity(0.7))
-        // Arms
-        if working {
-            t(&ctx, x: cx-1, y: cy+8, w: 2, h: 2, c: P.skin)
-            t(&ctx, x: cx+7, y: cy+8, w: 2, h: 2, c: P.skin)
-        } else {
-            t(&ctx, x: cx, y: cy+8, w: 1, h: 3, c: P.skin)
-            t(&ctx, x: cx+7, y: cy+8, w: 1, h: 3, c: P.skin)
-        }
+func drawStation(_ ctx: inout GraphicsContext, slot: Int, look: CharLook, status: AgentStatus, subs: [SubAgent], frame: Int) {
+    let (x, y) = stationPos(slot)
+    // Agent sits behind the desk, facing us, with the monitor turned towards them
+    sprite(&ctx, Sprites.character(look.sheet, frame: poseFrame(status, frame)), x: x + 24, y: y - 14)
+    sprite(&ctx, "DESK_FRONT", x: x, y: y)
+    sprite(&ctx, "PC_BACK", x: x + 6, y: y - 6)
+    if status == .working || status == .reading {
+        let c = CGPoint(x: CGFloat(x + 14) * K, y: CGFloat(y + 2) * K)
+        ctx.fill(Path(ellipseIn: CGRect(x: c.x - 16*K, y: c.y - 10*K, width: 32*K, height: 20*K)),
+                 with: .radialGradient(Gradient(colors: [P.screenGlow.opacity(0.22), P.screenGlow.opacity(0)]),
+                                       center: c, startRadius: 0, endRadius: 16*K))
+    }
+    // First subagent stands next to the desk; the name tag shows how many there are
+    if let sub = subs.first {
+        let f = sub.status == .working || sub.status == .reading ? 5 + (frame / 2) % 2 : 1
+        sprite(&ctx, Sprites.character(STYLES[sub.charStyle % STYLES.count].sheet, frame: f), x: x + 50, y: y - 2)
     }
 }
 
-func drawIntern(_ ctx: inout GraphicsContext, s: CharLook, x: Int, baseY: Int, frame: Int, working: Bool) {
-    let bob = frame % 4 < 2 ? 0 : -1
-    let cy = baseY + 6 + bob
-    // Smaller character (5 wide x 7 tall)
-    t(&ctx, x: x+1, y: cy, w: 3, h: 1, c: s.hair)
-    t(&ctx, x: x, y: cy+1, w: 5, h: 2, c: s.hair)
-    t(&ctx, x: x, y: cy+3, w: 5, h: 2, c: P.skin)
-    t(&ctx, x: x+1, y: cy+3, w: 1, h: 1, c: P.eye)
-    t(&ctx, x: x+3, y: cy+3, w: 1, h: 1, c: P.eye)
-    t(&ctx, x: x, y: cy+5, w: 5, h: 3, c: s.shirt)
-    if working {
-        t(&ctx, x: x-1, y: cy+6, w: 1, h: 1, c: P.skin)
-        t(&ctx, x: x+5, y: cy+6, w: 1, h: 1, c: P.skin)
-    }
-}
+// MARK: - Mochi
 
-func drawMochiOnCouch(_ ctx: inout GraphicsContext, frame: Int, awake: Bool) {
-    let body = Color(red: 0.95, green: 0.90, blue: 0.80)
-    let cheek = Color(red: 0.95, green: 0.70, blue: 0.70)
-    let x = 64, y = 72
+let MOCHI_X = 139
+let MOCHI_Y = 181
 
+func drawMochi(_ ctx: inout GraphicsContext, frame: Int, awake: Bool) {
+    let h = awake ? 10 : 7
+    let x = MOCHI_X
+    let y = MOCHI_Y + (awake ? (frame % 4 < 2 ? -4 : -5) : 0)
+    let line = P.mochiLine
+    // Rounded body with outline
+    t(&ctx, x: x + 2, y: y - 1, w: 6, h: 1, c: line)
+    t(&ctx, x: x + 1, y: y, c: line); t(&ctx, x: x + 8, y: y, c: line)
+    t(&ctx, x: x, y: y + 1, w: 1, h: h - 2, c: line); t(&ctx, x: x + 9, y: y + 1, w: 1, h: h - 2, c: line)
+    t(&ctx, x: x + 1, y: y + h - 1, c: line); t(&ctx, x: x + 8, y: y + h - 1, c: line)
+    t(&ctx, x: x + 2, y: y + h, w: 6, h: 1, c: line)
+    t(&ctx, x: x + 2, y: y, w: 6, h: 1, c: P.mochi)
+    t(&ctx, x: x + 1, y: y + 1, w: 8, h: h - 2, c: P.mochi)
+    t(&ctx, x: x + 2, y: y + h - 1, w: 6, h: 1, c: P.mochiSh)
+    t(&ctx, x: x + 2, y: y + 1, w: 2, h: 1, c: .white)
     if awake {
-        // Sitting up on couch
-        t(&ctx, x: x+1, y: y-3, w: 6, h: 1, c: body)
-        t(&ctx, x: x, y: y-2, w: 8, h: 4, c: body)
-        t(&ctx, x: x+1, y: y+2, w: 6, h: 1, c: body)
-        // Eyes open
-        t(&ctx, x: x+2, y: y-1, w: 1, h: 1, c: Color(white: 0.15))
-        t(&ctx, x: x+5, y: y-1, w: 1, h: 1, c: Color(white: 0.15))
-        // Cheeks
-        t(&ctx, x: x, y: y, w: 1, h: 1, c: cheek)
-        t(&ctx, x: x+7, y: y, w: 1, h: 1, c: cheek)
-        // Smile
-        t(&ctx, x: x+3, y: y+1, w: 2, h: 1, c: P.mouth)
-        // Little sparkle
-        let sp = frame % 6 < 3
-        if sp { t(&ctx, x: x+9, y: y-4, w: 1, h: 1, c: Color.yellow.opacity(0.6)) }
+        t(&ctx, x: x + 3, y: y + 3, w: 1, h: 2, c: P.eye)
+        t(&ctx, x: x + 6, y: y + 3, w: 1, h: 2, c: P.eye)
+        t(&ctx, x: x + 2, y: y + 5, c: P.cheek); t(&ctx, x: x + 7, y: y + 5, c: P.cheek)
+        t(&ctx, x: x + 4, y: y + 6, w: 2, h: 1, c: P.mouth)
+        if frame % 6 < 3 { t(&ctx, x: x + 11, y: y - 2, c: P.bldgLit) }
     } else {
-        // Lying down sleeping
-        t(&ctx, x: x, y: y, w: 8, h: 3, c: body)
-        // Closed eyes
-        t(&ctx, x: x+1, y: y, w: 1, h: 1, c: Color(white: 0.35))
-        t(&ctx, x: x+3, y: y, w: 1, h: 1, c: Color(white: 0.35))
-        t(&ctx, x: x, y: y+1, w: 1, h: 1, c: cheek)
-        t(&ctx, x: x+7, y: y+1, w: 1, h: 1, c: cheek)
-        // Zzz
-        let zy = y - (frame % 4 < 2 ? 1 : 2)
-        t(&ctx, x: x+8, y: zy, w: 2, h: 1, c: Color.white.opacity(0.3))
-        t(&ctx, x: x+9, y: zy-1, w: 2, h: 1, c: Color.white.opacity(0.2))
+        t(&ctx, x: x + 2, y: y + 3, w: 2, h: 1, c: line)
+        t(&ctx, x: x + 6, y: y + 3, w: 2, h: 1, c: line)
+        t(&ctx, x: x + 1, y: y + 4, c: P.cheek); t(&ctx, x: x + 8, y: y + 4, c: P.cheek)
     }
+}
+
+// MARK: - Scene
+
+func statusIcon(_ s: AgentStatus) -> String {
+    switch s {
+    case .idle: return "💤"
+    case .working: return "⚡"
+    case .reading: return "📖"
+    case .done: return "✅"
+    }
+}
+
+// Everything inside the loft: pixel art plus name tags. Used by the live window and by --snapshot.
+struct LoftStage: View {
+    let agents: [LiveAgent]
+    let services: [String]
+    let frame: Int
+    let mochiAwake: Bool
+    var selectedId: String? = nil
+    var selectedSubId: String? = nil
+    var mochiSelected = false
+
+    var seated: [LiveAgent] { agents.filter { $0.deskIdx >= 0 && $0.deskIdx < DESK_SLOTS } }
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Canvas { ctx, _ in
+                drawRoom(&ctx, frame: frame)
+                // Back row first so the front row overlaps it
+                let taken = Set(seated.map(\.deskIdx))
+                for slot in 0..<DESK_SLOTS where !taken.contains(slot) { drawEmptyDesk(&ctx, slot: slot) }
+                for a in seated.sorted(by: { $0.deskIdx < $1.deskIdx }) {
+                    drawStation(&ctx, slot: a.deskIdx, look: STYLES[a.charStyle % STYLES.count], status: a.status, subs: a.subagents, frame: frame)
+                }
+                drawMochi(&ctx, frame: frame, awake: mochiAwake)
+                drawLighting(&ctx)
+                let hl = GraphicsContext.Shading.color(P.neon.opacity(0.8))
+                if mochiSelected {
+                    ctx.stroke(Path(roundedRect: CGRect(x: 124*K, y: 160*K, width: 40*K, height: 36*K), cornerRadius: 6), with: hl, lineWidth: 2)
+                }
+                if let sid = selectedId, let a = seated.first(where: { $0.id == sid }) {
+                    let (x, y) = stationPos(a.deskIdx)
+                    if let subSid = selectedSubId, a.subagents.first?.id == subSid {
+                        ctx.stroke(Path(roundedRect: CGRect(x: CGFloat(x + 51)*K, y: CGFloat(y - 2)*K, width: 14*K, height: 32*K), cornerRadius: 4), with: hl, lineWidth: 2)
+                    } else {
+                        ctx.stroke(Path(roundedRect: CGRect(x: CGFloat(x - 2)*K, y: CGFloat(y - 14)*K, width: 52*K, height: 46*K), cornerRadius: 6), with: hl, lineWidth: 2)
+                    }
+                }
+            }
+
+            // Name tags
+            ForEach(seated) { a in
+                let (x, y) = stationPos(a.deskIdx)
+                let look = STYLES[a.charStyle % STYLES.count]
+                HStack(spacing: 4) {
+                    Text(statusIcon(a.status)).font(.system(size: 9))
+                    if !a.terminal.isEmpty {
+                        Text(a.terminal).font(.system(size: 8, weight: .bold, design: .rounded)).foregroundColor(.white.opacity(0.4))
+                    }
+                    Text(a.project).font(.system(size: 10, weight: .bold, design: .rounded)).foregroundColor(.white)
+                    if !a.subagents.isEmpty {
+                        Text("+\(a.subagents.count)").font(.system(size: 9, weight: .bold, design: .rounded)).foregroundColor(look.accent)
+                    }
+                    Text(a.shortId).font(.system(size: 8, weight: .medium, design: .monospaced)).foregroundColor(.white.opacity(0.35))
+                }
+                .lineLimit(1)
+                .padding(.horizontal, 7).padding(.vertical, 3)
+                .background(Capsule().fill(Color.black.opacity(0.6)))
+                .overlay(Capsule().stroke(look.accent.opacity(0.7), lineWidth: 1))
+                .frame(maxWidth: 200)
+                .fixedSize()
+                .position(x: CGFloat(x + 32) * K, y: CGFloat(y - 17) * K)
+            }
+
+            Text(mochiAwake ? "🍡 Mochi" : "🍡 zzz")
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .foregroundColor(.white.opacity(mochiAwake ? 0.8 : 0.45))
+                .padding(.horizontal, 6).padding(.vertical, 2)
+                .background(Capsule().fill(Color.black.opacity(0.45)))
+                .position(x: 144 * K, y: 170 * K)
+
+            // Running dev services on the whiteboard
+            VStack(alignment: .leading, spacing: 1) {
+                ForEach(services.prefix(4), id: \.self) { s in
+                    HStack(spacing: 3) {
+                        Circle().fill(P.scrOn).frame(width: 4, height: 4)
+                        Text(s).font(.system(size: 7, weight: .medium, design: .monospaced)).foregroundColor(Color(white: 0.25)).lineLimit(1)
+                    }
+                }
+            }
+            .frame(width: CGFloat(WB_W - 4) * K, height: CGFloat(WB_H - 2) * K, alignment: .topLeading)
+            .position(x: CGFloat(WB_X + WB_W / 2) * K, y: CGFloat(WB_Y + WB_H / 2) * K)
+
+            Text("AGENT LOFT")
+                .font(.system(size: 14, weight: .heavy, design: .monospaced))
+                .foregroundColor(P.neon)
+                .shadow(color: P.neon.opacity(0.9), radius: 10)
+                .shadow(color: P.neon.opacity(0.5), radius: 25)
+                .position(x: CGFloat(SW) * K / 2, y: CGFloat(WALL_TOP) * K / 2)
+
+            HStack(spacing: 6) {
+                Circle().fill(agents.isEmpty ? .gray : P.scrOn).frame(width: 6, height: 6)
+                Text("\(agents.count) agent\(agents.count == 1 ? "" : "s")")
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.6))
+                // Per-project chips only while they fit next to the title
+                let grouped = Dictionary(grouping: agents, by: { $0.project.components(separatedBy: ":").first ?? $0.project })
+                ForEach(grouped.count <= 3 ? Array(grouped.keys.sorted()) : [], id: \.self) { key in
+                    Text("\(key) \(grouped[key]!.count)")
+                        .font(.system(size: 8, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.4))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(RoundedRectangle(cornerRadius: 3).fill(.white.opacity(0.08)))
+                }
+            }
+            .lineLimit(1)
+            .fixedSize()
+            .frame(width: 320, height: CGFloat(WALL_TOP) * K, alignment: .trailing)
+            .position(x: CGFloat(SW) * K - 170, y: CGFloat(WALL_TOP) * K / 2)
+        }
+        .frame(width: CGFloat(SW) * K, height: CGFloat(SH) * K)
+    }
+}
+
+// MARK: - Snapshot
+// `AgentLoft --snapshot out.png` renders the loft with demo agents and quits (handy for README screenshots).
+
+@MainActor
+func renderSnapshot(to path: String) {
+    func demo(_ id: String, _ project: String, _ status: AgentStatus, style: Int, desk: Int, subs: [AgentStatus] = []) -> LiveAgent {
+        LiveAgent(id: id, project: project, task: "", status: status, charStyle: style, deskIdx: desk, isRoutine: false,
+                  arrived: Date(), cwd: "", subagents: subs.enumerated().map { i, s in
+                      SubAgent(id: "\(id)-\(i)", status: s, charStyle: style + i + 1, task: "", cwd: "", activities: [])
+                  }, activities: [], entrypoint: "cli", shortId: String(id.prefix(6)), terminal: "")
+    }
+    let agents = [
+        demo("61ce94", "Process Views", .working, style: 0, desk: 0, subs: [.working]),
+        demo("a16015", "rdp-latest-draft", .reading, style: 1, desk: 1),
+        demo("4ad60b", "agent-loft", .working, style: 2, desk: 2),
+        demo("2ed10c", "Home", .idle, style: 3, desk: 3),
+        demo("9b41f2", "Obsidian Vault", .done, style: 4, desk: 5),
+        demo("c07a33", "Video Editing", .working, style: 5, desk: 6, subs: [.reading, .working]),
+    ]
+    let renderer = ImageRenderer(content: LoftStage(agents: agents, services: ["bun dev :3000", "next dev :4000"], frame: 3, mochiAwake: false)
+        .background(Color(red: 0.08, green: 0.06, blue: 0.12)))
+    renderer.scale = 2
+    guard let cg = renderer.cgImage,
+          let png = NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:]) else { return }
+    try? png.write(to: URL(fileURLWithPath: path))
 }
 
 // MARK: - View
@@ -437,112 +554,28 @@ struct AgentLoftView: View {
             ZStack(alignment: .topLeading) {
                 Color(red: 0.08, green: 0.06, blue: 0.12)
 
-                TimelineView(.periodic(from: .now, by: 0.5)) { tl in
-                    let fr = Int(tl.date.timeIntervalSince1970 * 2)
-                    Canvas { ctx, _ in
-                        drawRoom(&ctx, services: services)
-                        let totalDesks = DKCOLS.count + DKCOLS2.count
-                        for a in agents where a.deskIdx >= 0 && a.deskIdx < totalDesks {
-                            let pos = deskPos(a.deskIdx)
-                            drawDesk(&ctx, col: pos.col, baseY: pos.baseY, on: a.status == .working || a.status == .done)
-                            drawChar(&ctx, s: STYLES[a.charStyle % STYLES.count], col: pos.col, baseY: pos.baseY, frame: fr, working: a.status == .working)
-                            for (i, sub) in a.subagents.enumerated() {
-                                let sx = pos.col + 17 + (i * 7)
-                                drawIntern(&ctx, s: STYLES[sub.charStyle % STYLES.count], x: sx, baseY: pos.baseY, frame: fr, working: sub.status == .working)
-                            }
-                        }
-                        drawMochiOnCouch(&ctx, frame: fr, awake: mochiAwake)
-                        if mochiSelected {
-                            ctx.stroke(Path(roundedRect: CGRect(x: 59*T, y: 66*T, width: 18*T, height: 16*T), cornerRadius: 3),
-                                       with: .color(P.neon.opacity(0.7)), lineWidth: 2)
-                        }
-                        if let sid = selectedId, let a = agents.first(where: { $0.id == sid }), a.deskIdx >= 0 && a.deskIdx < totalDesks {
-                            let pos = deskPos(a.deskIdx)
-                            if let subSid = selectedSubId, let subIdx = a.subagents.firstIndex(where: { $0.id == subSid }) {
-                                let sx = pos.col + 17 + (subIdx * 7)
-                                ctx.stroke(Path(roundedRect: CGRect(x: CGFloat(sx-1)*T, y: CGFloat(pos.baseY+4)*T, width: 8*T, height: 12*T), cornerRadius: 2),
-                                           with: .color(P.neon.opacity(0.7)), lineWidth: 2)
-                            } else {
-                                ctx.stroke(Path(roundedRect: CGRect(x: CGFloat(pos.col-2)*T, y: CGFloat(pos.baseY-2)*T, width: 20*T, height: 28*T), cornerRadius: 3),
-                                           with: .color(P.neon.opacity(0.7)), lineWidth: 2)
-                            }
-                        }
-                    }
+                TimelineView(.periodic(from: .now, by: 0.35)) { tl in
+                    LoftStage(agents: agents, services: services, frame: Int(tl.date.timeIntervalSince1970 / 0.35),
+                              mochiAwake: mochiAwake, selectedId: selectedId, selectedSubId: selectedSubId, mochiSelected: mochiSelected)
                 }
-                .frame(width: CGFloat(C)*T, height: CGFloat(R)*T)
                 .contentShape(Rectangle())
                 .onTapGesture { loc in
-                    let tx = Int(loc.x / T), ty = Int(loc.y / T)
-                    // Mochi on couch (x=64, y=72, roughly 10x8 area)
-                    if tx >= 60 && tx <= 76 && ty >= 67 && ty <= 80 {
+                    let px = Int(loc.x / K), py = Int(loc.y / K)
+                    // Mochi on the couch
+                    if px >= 124 && px <= 164 && py >= 160 && py <= 196 {
                         mochiSelected.toggle(); selectedId = nil; selectedSubId = nil; return
                     }
-                    let totalDesks = DKCOLS.count + DKCOLS2.count
-                    for a in agents where a.deskIdx >= 0 && a.deskIdx < totalDesks {
-                        let pos = deskPos(a.deskIdx)
-                        for (i, sub) in a.subagents.enumerated() {
-                            let sx = pos.col + 17 + (i * 7)
-                            if tx >= sx - 1 && tx <= sx + 6 && ty >= pos.baseY && ty <= pos.baseY + 14 {
-                                mochiSelected = false; selectedId = a.id; selectedSubId = selectedSubId == sub.id ? nil : sub.id; return
-                            }
+                    for a in agents where a.deskIdx >= 0 && a.deskIdx < DESK_SLOTS {
+                        let (x, y) = stationPos(a.deskIdx)
+                        if let sub = a.subagents.first, px >= x + 52 && px <= x + 64 && py >= y - 2 && py <= y + 30 {
+                            mochiSelected = false; selectedId = a.id; selectedSubId = selectedSubId == sub.id ? nil : sub.id; return
                         }
-                        if tx >= pos.col && tx <= pos.col + 16 && ty >= pos.baseY - 2 && ty <= pos.baseY + 26 {
+                        if px >= x - 2 && px <= x + 50 && py >= y - 22 && py <= y + 32 {
                             mochiSelected = false; selectedSubId = nil; selectedId = selectedId == a.id ? nil : a.id; return
                         }
                     }
                     mochiSelected = false; selectedId = nil; selectedSubId = nil
                 }
-
-                Text("AGENT LOFT")
-                    .font(.system(size: 14, weight: .heavy, design: .monospaced))
-                    .foregroundColor(P.neon)
-                    .shadow(color: P.neon.opacity(0.9), radius: 10)
-                    .shadow(color: P.neon.opacity(0.5), radius: 25)
-                    .position(x: CGFloat(C)*T/2, y: 2.5*T)
-
-                ForEach(agents.filter { $0.deskIdx >= 0 && $0.deskIdx < DKCOLS.count + DKCOLS2.count }) { a in
-                    let pos = deskPos(a.deskIdx)
-                    let termPrefix = a.terminal.isEmpty ? "" : "[\(a.terminal)] "
-                    let label = a.subagents.isEmpty ? "\(termPrefix)\(a.project)" : "\(termPrefix)\(a.project) +\(a.subagents.count)"
-                    Text(label)
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.75))
-                        .position(x: CGFloat(pos.col+8)*T, y: CGFloat(pos.baseY-3)*T)
-                }
-
-                ForEach(agents.filter { $0.deskIdx >= 0 && $0.deskIdx < DKCOLS.count + DKCOLS2.count }) { a in
-                    let pos = deskPos(a.deskIdx)
-                    let icon = a.status == .idle ? "💤" : (a.status == .working ? "⚡" : (a.status == .reading ? "📖" : "✅"))
-                    Text(icon).font(.system(size: 13))
-                        .position(x: CGFloat(pos.col+8)*T, y: CGFloat(pos.baseY-5)*T)
-                }
-
-                ForEach(agents.filter { $0.deskIdx >= 0 && $0.deskIdx < DKCOLS.count + DKCOLS2.count }) { a in
-                    let pos = deskPos(a.deskIdx)
-                    let tag = a.terminal.isEmpty ? a.shortId : "\(a.terminal.prefix(4).lowercased()):\(a.shortId)"
-                    Text(tag)
-                        .font(.system(size: 7, weight: .medium, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.3))
-                        .position(x: CGFloat(pos.col+8)*T, y: CGFloat(pos.baseY-1)*T)
-                }
-
-                // Mochi label on couch
-                Text(mochiAwake ? "🍡 Mochi" : "🍡 zzz")
-                    .font(.system(size: 9, weight: .bold, design: .rounded))
-                    .foregroundColor(.white.opacity(mochiAwake ? 0.75 : 0.35))
-                    .position(x: 68*T, y: 69*T)
-
-                // Services on whiteboard label
-                VStack(alignment: .leading, spacing: 1) {
-                    ForEach(services.prefix(4), id: \.self) { s in
-                        HStack(spacing: 3) {
-                            Circle().fill(P.scrOn).frame(width: 4, height: 4)
-                            Text(s).font(.system(size: 6, weight: .medium, design: .monospaced))
-                                .foregroundColor(Color(white: 0.4))
-                        }
-                    }
-                }
-                .position(x: 130*T, y: 23*T)
 
                 if agents.isEmpty && scanCount > 0 {
                     VStack(spacing: 3) {
@@ -553,32 +586,13 @@ struct AgentLoftView: View {
                             .foregroundColor(.yellow.opacity(0.5))
                     }
                     .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(.white.opacity(0.3))
-                    .position(x: CGFloat(C)*T/2, y: 56*T)
+                    .foregroundColor(.white.opacity(0.5))
+                    .padding(10)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.5)))
+                    .position(x: CGFloat(SW)*K/2, y: 110*K)
                 }
-
-                HStack(spacing: 6) {
-                    Circle().fill(agents.isEmpty ? .gray : P.scrOn).frame(width: 6, height: 6)
-                    Text("\(agents.count) agent\(agents.count == 1 ? "" : "s")")
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.6))
-                    if !agents.isEmpty {
-                        let grouped = Dictionary(grouping: agents, by: { $0.project.components(separatedBy: ":").first ?? $0.project })
-                        ForEach(Array(grouped.keys.sorted()), id: \.self) { key in
-                            let count = grouped[key]!.count
-                            Text("\(key) \(count)")
-                                .font(.system(size: 8, weight: .medium, design: .rounded))
-                                .foregroundColor(.white.opacity(0.4))
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 1)
-                                .background(RoundedRectangle(cornerRadius: 3).fill(.white.opacity(0.08)))
-                        }
-                    }
-                }
-                .position(x: CGFloat(C)*T - 100, y: 2.5*T)
             }
-            .frame(width: CGFloat(C)*T, height: CGFloat(R)*T)
-
+            .frame(width: CGFloat(SW)*K, height: CGFloat(SH)*K)
             // Tabs
             HStack(spacing: 0) {
                 if agents.isEmpty {
@@ -590,7 +604,7 @@ struct AgentLoftView: View {
                         VStack(spacing: 0) {
                             Button(action: { mochiSelected = false; selectedSubId = nil; selectedId = selectedId == a.id ? nil : a.id }) {
                                 HStack(spacing: 4) {
-                                    Circle().fill(STYLES[a.charStyle % STYLES.count].hair).frame(width: 8, height: 8)
+                                    Circle().fill(STYLES[a.charStyle % STYLES.count].accent).frame(width: 8, height: 8)
                                     if !a.terminal.isEmpty {
                                         Text(a.terminal).font(.system(size: 8, weight: .bold, design: .rounded))
                                             .foregroundColor(.white.opacity(0.3))
@@ -606,8 +620,8 @@ struct AgentLoftView: View {
                                 ForEach(a.subagents) { sub in
                                     Button(action: { selectedId = a.id; selectedSubId = selectedSubId == sub.id ? nil : sub.id }) {
                                         HStack(spacing: 3) {
-                                            Circle().fill(STYLES[sub.charStyle % STYLES.count].hair).frame(width: 5, height: 5)
-                                            let icon = sub.status == .working ? "⚡" : (sub.status == .reading ? "📖" : (sub.status == .done ? "✅" : "💤"))
+                                            Circle().fill(STYLES[sub.charStyle % STYLES.count].accent).frame(width: 5, height: 5)
+                                            let icon = statusIcon(sub.status)
                                             Text("\(icon) sub").font(.system(size: 9, weight: .medium, design: .rounded)).lineLimit(1)
                                         }
                                         .foregroundColor(selectedSubId == sub.id ? P.neon : .white.opacity(0.4))
@@ -644,7 +658,7 @@ struct AgentLoftView: View {
                                     Circle().fill(dot).frame(width: 8, height: 8)
                                 }
                                 HStack(spacing: 6) {
-                                    Circle().fill(STYLES[sub.charStyle % STYLES.count].hair).frame(width: 10, height: 10)
+                                    Circle().fill(STYLES[sub.charStyle % STYLES.count].accent).frame(width: 10, height: 10)
                                     Text("Subagent").font(.system(size: 13, weight: .bold, design: .rounded)).foregroundColor(.white)
                                     Text(sub.status.rawValue.uppercased())
                                         .font(.system(size: 9, weight: .bold, design: .rounded)).foregroundColor(P.neon)
@@ -664,7 +678,7 @@ struct AgentLoftView: View {
                                 }
                             } else {
                                 HStack {
-                                    Circle().fill(STYLES[a.charStyle % STYLES.count].hair).frame(width: 14, height: 14)
+                                    Circle().fill(STYLES[a.charStyle % STYLES.count].accent).frame(width: 14, height: 14)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(a.project).font(.system(size: 15, weight: .bold, design: .rounded)).foregroundColor(.white)
                                         HStack(spacing: 6) {
@@ -701,8 +715,8 @@ struct AgentLoftView: View {
                                         Button(action: { selectedSubId = sub.id }) {
                                             VStack(alignment: .leading, spacing: 3) {
                                                 HStack(spacing: 6) {
-                                                    Circle().fill(STYLES[sub.charStyle % STYLES.count].hair).frame(width: 8, height: 8)
-                                                    let icon = sub.status == .working ? "⚡" : (sub.status == .reading ? "📖" : (sub.status == .done ? "✅" : "💤"))
+                                                    Circle().fill(STYLES[sub.charStyle % STYLES.count].accent).frame(width: 8, height: 8)
+                                                    let icon = statusIcon(sub.status)
                                                     Text(icon).font(.system(size: 10))
                                                     Text(sub.task).font(.system(size: 11, design: .rounded)).foregroundColor(.white.opacity(0.7)).lineLimit(1)
                                                     Spacer()
@@ -1208,7 +1222,7 @@ struct AgentLoftView: View {
         var na: [LiveAgent] = []
         var dm = deskMap
         var ud = Set<Int>()
-        let totalDesks = DKCOLS.count + DKCOLS2.count
+        let totalDesks = DESK_SLOTS
         for f in found {
             let ex = agents.first(where: { $0.id == f.id })
             let d: Int

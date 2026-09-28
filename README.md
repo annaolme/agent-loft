@@ -2,30 +2,40 @@
 
 A pixel-art macOS app that shows every running Claude Code agent as an animated character in a startup loft.
 
+![Agent Loft](docs/screenshot.png)
+
 ## What it does
 
 - Detects Claude Code sessions (CLI, Desktop, web) by reading the session files in `~/.claude/projects/`
 - Gives each agent its own pixel character at a desk in the loft
-- Animates characters by activity: typing while working, idle when done
-- Shows subagents as smaller "intern" characters next to their parent's desk
+- Animates characters by activity: typing while working, reading while reading files, sitting still when idle or done
+- Shows the first subagent as an "intern" standing next to its parent's desk; the name tag shows how many there are
 - Click an agent to see what it's working on, its working directory and status
-- Shows agent counts per project in the status bar, e.g. "RDP 2 · Video Editing 1"
+- Shows the agent count in the top bar, plus per-project counts (e.g. "RDP 2 · Video Editing 1") when there are three projects or fewer
 - Lists running dev servers (bun dev, next dev, …) on the whiteboard
 
 ## Tech
 
 - Single-file SwiftUI app
-- Pixel art on a 6 px tile grid (140 × 88), drawn with `Canvas` and `TimelineView`
+- Top-down pixel art on a 16 px grid (288 × 208), scaled 3× and drawn with `Canvas` and `TimelineView`
+- Characters and furniture are PNG sprites in `assets/` (see [assets/CREDITS.md](assets/CREDITS.md)); the brick wall, night windows, whiteboard, lights and Mochi are drawn in code
+- Characters type while working, read while reading, and sit still when idle or done
 - Native file I/O with `FileHandle` and `FileManager`
 - Reads the last 80 KB of each session file and uses its `cwd` for project names
 - Refreshes every 5 seconds in the background
-- 8 character styles; the room has brick walls, windows with a city skyline, pendant lights, a whiteboard, a coffee station, a couch and plants
 
 ## Build
 
 ```bash
-swiftc -O -o AgentLoft AgentLoft.swift -framework SwiftUI -framework Cocoa -framework AppKit -parse-as-library
-./AgentLoft
+./build.sh
+```
+
+This compiles the app and, if `~/Applications/Agent Loft.app` exists, installs the binary and sprites into it. Otherwise run `./build/AgentLoft`.
+
+To render the loft with demo agents to an image (used for the screenshot above):
+
+```bash
+./build/AgentLoft --snapshot docs/screenshot.png
 ```
 
 ## History
